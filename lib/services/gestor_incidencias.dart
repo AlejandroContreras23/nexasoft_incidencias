@@ -1,3 +1,4 @@
+
 import '../data/almacen_local.dart';
 import '../model/incidencia.dart';
 
@@ -13,8 +14,14 @@ class GestorIncidencias {
   }
 
   List<Incidencia> buscar(String texto) {
-    if (texto.trim().isEmpty) return incidencias;
-    return incidencias.where((x) => x.titulo.contains(texto)).toList();
+    final consulta = texto.trim().toLowerCase();
+
+    if (consulta.isEmpty) return incidencias;
+
+    return incidencias.where((x) {
+      return x.titulo.toLowerCase().contains(consulta) ||
+          x.descripcion.toLowerCase().contains(consulta);
+    }).toList();
   }
 
   Incidencia? porId(String id) {
@@ -36,10 +43,19 @@ class GestorIncidencias {
         break;
       }
     }
+
+    cantidadPendientes =
+        incidencias.where((x) => x.estado == 'Pendiente').length;
+
+    await datos.guardar(incidencias);
   }
 
-  Future<void> crear(String titulo, String descripcion, String cliente,
-      String categoria) async {
+  Future<void> crear(
+    String titulo,
+    String descripcion,
+    String cliente,
+    String categoria,
+  ) async {
     final nuevo = Incidencia(
       id: 'INC-${DateTime.now().microsecondsSinceEpoch}',
       titulo: titulo,
@@ -49,8 +65,10 @@ class GestorIncidencias {
       estado: 'Pendiente',
       fecha: DateTime.now().toIso8601String().split('T').first,
     );
+
     incidencias.insert(0, nuevo);
     cantidadPendientes++;
+
     await datos.guardar(incidencias);
   }
 
