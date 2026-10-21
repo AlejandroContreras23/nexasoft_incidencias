@@ -9,19 +9,32 @@ class PantallaPrincipal extends StatefulWidget {
   const PantallaPrincipal({super.key});
 
   @override
-  State<PantallaPrincipal> createState() => _PantallaPrincipalState();
+  State<PantallaPrincipal> createState() =>
+      _PantallaPrincipalState();
 }
 
 class _PantallaPrincipalState extends State<PantallaPrincipal> {
   final GestorIncidencias g = GestorIncidencias();
+  final TextEditingController controladorBusqueda =
+      TextEditingController();
+
   bool cargando = true;
   String? error;
+
   String busqueda = '';
+  String filtroEstado = 'Todos';
+  String filtroPrioridad = 'Todas';
 
   @override
   void initState() {
     super.initState();
     cargar();
+  }
+
+  @override
+  void dispose() {
+    controladorBusqueda.dispose();
+    super.dispose();
   }
 
   Future<void> cargar() async {
@@ -172,7 +185,18 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
       await g.reiniciarDemo();
 
       if (mounted) {
-        setState(() {});
+        setState(() {
+          busqueda = '';
+          controladorBusqueda.clear();
+          filtroEstado = 'Todos';
+          filtroPrioridad = 'Todas';
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Datos de demostración restablecidos'),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -206,9 +230,28 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
     );
   }
 
+  void limpiarFiltros() {
+    setState(() {
+      busqueda = '';
+      controladorBusqueda.clear();
+      filtroEstado = 'Todos';
+      filtroPrioridad = 'Todas';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final items = g.buscar(busqueda);
+    final items = g.buscar(busqueda).where((item) {
+      final coincideEstado =
+          filtroEstado == 'Todos' ||
+          item.estado == filtroEstado;
+
+      final coincidePrioridad =
+          filtroPrioridad == 'Todas' ||
+          item.prioridad == filtroPrioridad;
+
+      return coincideEstado && coincidePrioridad;
+    }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -261,7 +304,10 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.fromLTRB(
-                            12, 14, 12, 8,
+                            12,
+                            14,
+                            12,
+                            8,
                           ),
                           child: Row(
                             children: [
@@ -283,12 +329,15 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
                             ],
                           ),
                         ),
+
+                        // Busqueda por texto
                         Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 17,
                             vertical: 5,
                           ),
                           child: TextField(
+                            controller: controladorBusqueda,
                             decoration: const InputDecoration(
                               labelText: 'Buscar incidencias',
                               hintText:
@@ -301,6 +350,102 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
                             },
                           ),
                         ),
+
+                        // Filtros por estado y prioridad
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 17,
+                            vertical: 5,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child:
+                                    DropdownButtonFormField<String>(
+                                  initialValue: filtroEstado,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Estado',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: const [
+                                    'Todos',
+                                    'Pendiente',
+                                    'En proceso',
+                                    'Resuelta',
+                                  ].map((estado) {
+                                    return DropdownMenuItem<String>(
+                                      value: estado,
+                                      child: Text(
+                                        estado,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (valor) {
+                                    if (valor != null) {
+                                      setState(() {
+                                        filtroEstado = valor;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child:
+                                    DropdownButtonFormField<String>(
+                                  initialValue: filtroPrioridad,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Prioridad',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: const [
+                                    'Todas',
+                                    'Baja',
+                                    'Media',
+                                    'Alta',
+                                  ].map((prioridad) {
+                                    return DropdownMenuItem<String>(
+                                      value: prioridad,
+                                      child: Text(
+                                        prioridad,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (valor) {
+                                    if (valor != null) {
+                                      setState(() {
+                                        filtroPrioridad = valor;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Limpiar filtros
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 17,
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: limpiarFiltros,
+                              icon: const Icon(
+                                Icons.filter_alt_off,
+                              ),
+                              label: const Text('Limpiar filtros'),
+                            ),
+                          ),
+                        ),
+
+                        // Contador de resultados
                         Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 20,
@@ -316,6 +461,8 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
                             ),
                           ),
                         ),
+
+                        // Lista de incidencias
                         Expanded(
                           child: items.isEmpty
                               ? const Center(
@@ -351,7 +498,9 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
                                         ),
                                         subtitle: Padding(
                                           padding:
-                                              const EdgeInsets.only(top: 8),
+                                              const EdgeInsets.only(
+                                            top: 8,
+                                          ),
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
